@@ -1,0 +1,6 @@
+@echo off
+echo 启动托盘程序...
+"target\release\Tray.exe" "测试脚本"
+timeout /t 1 /nobreak >nul
+echo 运行测试脚本...
+call test_script.bat
