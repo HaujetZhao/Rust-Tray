@@ -367,12 +367,28 @@ unsafe fn show_context_menu(hwnd: HWND) {
 }
 
 unsafe fn show_about_dialog(hwnd: HWND) {
+    use windows::Win32::UI::WindowsAndMessaging::{MB_YESNO, IDYES};
+    use windows::Win32::UI::Shell::ShellExecuteW;
+    
     let about_text = include_str!("../assets/about.txt");
-    let h_text = windows::core::HSTRING::from(about_text);
-    let _ = MessageBoxW(
+    let h_text = windows::core::HSTRING::from(format!("{}\n\n是否立即前往官网查看更新？", about_text));
+    
+    let result = MessageBoxW(
         hwnd,
         PCWSTR(h_text.as_ptr()),
         w!("关于 Tray"),
-        MB_OK | MB_ICONINFORMATION,
+        MB_YESNO | MB_ICONINFORMATION,
     );
+
+    if result == IDYES {
+        let url = w!("https://github.com/HaujetZhao/Rust-Tray");
+        ShellExecuteW(
+            hwnd,
+            w!("open"),
+            url,
+            None,
+            None,
+            windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL,
+        );
+    }
 }
