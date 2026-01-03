@@ -1,0 +1,11 @@
+Tray - Windows 控制台窗口管家
+
+功能：
+• 单击托盘图标显隐窗口
+• 窗口最小化时自动隐藏至托盘
+• 禁用关闭按钮防止脚本误删
+• 自动随从父进程生命周期
+
+版本：v0.1.0
+作者：Haujet Zhao
+更新地址：https://github.com/HaujetZhao/Rust-Tray

@@ -13,13 +13,14 @@ use windows::Win32::UI::WindowsAndMessaging::{
 use windows::Win32::UI::Shell::{Shell_NotifyIconW, NIM_ADD, NIM_DELETE, NOTIFYICONDATAW, NIF_ICON, NIF_MESSAGE, NIF_TIP};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::System::Console::GetConsoleWindow;
-use windows::Win32::UI::WindowsAndMessaging::{IsWindowVisible, SendMessageW, WM_CLOSE, IsIconic, ShowWindow};
+use windows::Win32::UI::WindowsAndMessaging::{IsWindowVisible, SendMessageW, WM_CLOSE, IsIconic, ShowWindow, MessageBoxW, MB_OK, MB_ICONINFORMATION};
 
 use std::env;
 use std::sync::Mutex;
 
 const WM_TRAYICON: u32 = WM_USER + 1;
 const IDM_TITLE: u32 = 1001;
+const IDM_ABOUT: u32 = 1004;
 const IDM_TOGGLE: u32 = 1002;
 const IDM_EXIT: u32 = 1003;
 
@@ -278,6 +279,9 @@ unsafe extern "system" fn window_proc(
         WM_COMMAND => {
             let id = wparam.0 as u32;
             match id {
+                IDM_ABOUT => {
+                    show_about_dialog(hwnd);
+                }
                 IDM_TOGGLE => {
                     toggle_parent_window();
                 }
@@ -309,6 +313,22 @@ unsafe fn show_context_menu(hwnd: HWND) {
         MF_STRING | MF_GRAYED,
         IDM_TITLE as usize,
         PCWSTR(app_name_w.as_ptr()),
+    );
+
+    // 关于对话框
+    let _ = AppendMenuW(
+        menu,
+        MF_STRING,
+        IDM_ABOUT as usize,
+        w!("关于..."),
+    );
+
+    // 分隔符
+    let _ = AppendMenuW(
+        menu,
+        windows::Win32::UI::WindowsAndMessaging::MF_SEPARATOR,
+        0,
+        None,
     );
     
     // 第二项：显示/隐藏（默认项）
@@ -344,4 +364,15 @@ unsafe fn show_context_menu(hwnd: HWND) {
     );
 
     let _ = DestroyMenu(menu);
+}
+
+unsafe fn show_about_dialog(hwnd: HWND) {
+    let about_text = include_str!("../assets/about.txt");
+    let h_text = windows::core::HSTRING::from(about_text);
+    let _ = MessageBoxW(
+        hwnd,
+        PCWSTR(h_text.as_ptr()),
+        w!("关于 Tray"),
+        MB_OK | MB_ICONINFORMATION,
+    );
 }
