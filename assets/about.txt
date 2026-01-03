@@ -5,5 +5,5 @@
 • 精准监控：父窗口关闭时，托盘自动退出
 
 关于项目：
-版本：v0.1.0
+版本：v0.2.0
 Github：<a href="https://github.com/HaujetZhao/Rust-Tray">HaujetZhao/Rust-Tray</a>
