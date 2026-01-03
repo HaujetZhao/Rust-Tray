@@ -13,7 +13,12 @@ use windows::Win32::UI::WindowsAndMessaging::{
 use windows::Win32::UI::Shell::{Shell_NotifyIconW, NIM_ADD, NIM_DELETE, NOTIFYICONDATAW, NIF_ICON, NIF_MESSAGE, NIF_TIP};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::System::Console::GetConsoleWindow;
-use windows::Win32::UI::WindowsAndMessaging::{IsWindowVisible, SendMessageW, WM_CLOSE, IsIconic, ShowWindow, MessageBoxW, MB_OK, MB_ICONINFORMATION};
+use windows::Win32::UI::WindowsAndMessaging::{IsWindowVisible, SendMessageW, WM_CLOSE, IsIconic, ShowWindow};
+use windows::Win32::UI::Controls::{
+    TaskDialogIndirect, TASKDIALOGCONFIG, TDF_ENABLE_HYPERLINKS, TDN_HYPERLINK_CLICKED,
+    TDCBF_OK_BUTTON, TASKDIALOGCONFIG_0, TASKDIALOG_NOTIFICATIONS,
+    InitCommonControlsEx, INITCOMMONCONTROLSEX, ICC_STANDARD_CLASSES,
+};
 
 use std::env;
 use std::sync::Mutex;
@@ -33,8 +38,15 @@ static APP_NAME: Mutex<Option<String>> = Mutex::new(None);
 
 fn main() {
     unsafe {
-        use windows::Win32::UI::HiDpi::{SetProcessDpiAwareness, PROCESS_PER_MONITOR_DPI_AWARE};
-        let _ = SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
+        use windows::Win32::UI::WindowsAndMessaging::SetProcessDPIAware;
+        let _ = SetProcessDPIAware();
+        
+        // 初始化通用控件
+        let icce = INITCOMMONCONTROLSEX {
+            dwSize: std::mem::size_of::<INITCOMMONCONTROLSEX>() as u32,
+            dwICC: ICC_STANDARD_CLASSES,
+        };
+        let _ = InitCommonControlsEx(&icce);
     }
 
     let args: Vec<String> = env::args().collect();
@@ -367,28 +379,45 @@ unsafe fn show_context_menu(hwnd: HWND) {
 }
 
 unsafe fn show_about_dialog(hwnd: HWND) {
-    use windows::Win32::UI::WindowsAndMessaging::{MB_YESNO, IDYES};
-    use windows::Win32::UI::Shell::ShellExecuteW;
-    
     let about_text = include_str!("../assets/about.txt");
-    let h_text = windows::core::HSTRING::from(format!("{}\n\n是否立即前往官网查看更新？", about_text));
+    let h_content = windows::core::HSTRING::from(about_text);
     
-    let result = MessageBoxW(
-        hwnd,
-        PCWSTR(h_text.as_ptr()),
-        w!("关于 Tray"),
-        MB_YESNO | MB_ICONINFORMATION,
-    );
+    let config = TASKDIALOGCONFIG {
+        cbSize: std::mem::size_of::<TASKDIALOGCONFIG>() as u32,
+        hwndParent: hwnd,
+        dwFlags: TDF_ENABLE_HYPERLINKS,
+        dwCommonButtons: TDCBF_OK_BUTTON,
+        pszWindowTitle: w!("关于 Tray"),
+        Anonymous1: TASKDIALOGCONFIG_0 {
+            pszMainIcon: windows::Win32::UI::Controls::TD_INFORMATION_ICON,
+        },
+        pszMainInstruction: w!("Tray"),
+        pszContent: PCWSTR(h_content.as_ptr()),
+        pfCallback: Some(task_dialog_callback),
+        ..Default::default()
+    };
 
-    if result == IDYES {
-        let url = w!("https://github.com/HaujetZhao/Rust-Tray");
-        ShellExecuteW(
+    let mut button_clicked = 0;
+    let _ = TaskDialogIndirect(&config, Some(&mut button_clicked), None, None);
+}
+
+unsafe extern "system" fn task_dialog_callback(
+    hwnd: HWND,
+    msg: TASKDIALOG_NOTIFICATIONS,
+    _wparam: WPARAM,
+    lparam: LPARAM,
+    _ref_data: isize,
+) -> windows::core::HRESULT {
+    if msg == TDN_HYPERLINK_CLICKED {
+        let url = lparam.0 as *const u16;
+        let _ = windows::Win32::UI::Shell::ShellExecuteW(
             hwnd,
             w!("open"),
-            url,
+            PCWSTR(url),
             None,
             None,
             windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL,
         );
     }
+    windows::core::HRESULT(0) // S_OK
 }
