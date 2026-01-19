@@ -58,14 +58,16 @@ fn main() {
             if AttachConsole(ATTACH_PARENT_PROCESS).is_ok() {
                 let parent_hwnd = GetConsoleWindow();
                 if !parent_hwnd.0.is_null() {
-                    let user_title = if args.len() > 1 { args[1..].join(" ") } else { "Console App".to_string() };
+                    let user_title = if args.len() > 1 { args[1..].join(" ").replace("--instant_hide", "") } else { "Console App".to_string() };
                     let exe_path = env::current_exe().unwrap();
+                    let init_minimize = if raw_arg.contains("--instant_hide") {"--instant_hide"} else {"--nothing"};
                     
                     use std::process::Command;
                     use std::os::windows::process::CommandExt;
                     const DETACHED_PROCESS: u32 = 0x00000008;
 
                     let _ = Command::new(exe_path)
+                        .arg(init_minimize)
                         .arg("--detached-child")
                         .arg(format!("{:p}", parent_hwnd.0))
                         .arg(user_title)
@@ -79,11 +81,12 @@ fn main() {
     }
 
     // 后台服务逻辑
-    if args.len() < 4 { return; }
+    if args.len() < 5 { return; }
     
-    let hwnd_str = args[2].trim_start_matches("0x");
+    let init_minimize = if args[1] == "--instant_hide" {true} else {false};
+    let hwnd_str = args[3].trim_start_matches("0x");
     let parent_hwnd_raw = usize::from_str_radix(hwnd_str, 16).unwrap_or(0);
-    let app_name = args[3..].join(" ");
+    let app_name = args[4..].join(" ");
     
     *APP_NAME.lock().unwrap() = Some(app_name.clone());
 
@@ -103,6 +106,11 @@ fn main() {
             });
 
         let parent_raw = parent_hwnd.0 as isize;
+        
+        if init_minimize {
+            toggle_parent_window();
+        }
+        
         std::thread::spawn(move || {
             monitor_parent_window(parent_raw);
         });
