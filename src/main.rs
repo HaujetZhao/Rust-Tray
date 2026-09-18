@@ -6,6 +6,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
     CreatePopupMenu, CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW,
     GetCursorPos, GetMessageW, PostQuitMessage, RegisterClassW, SetForegroundWindow,
     TrackPopupMenu, TranslateMessage, AppendMenuW, DestroyMenu, GetSystemMenu, DeleteMenu,
+    GetAncestor, GA_ROOTOWNER,
     CW_USEDEFAULT, HICON, MSG, TPM_BOTTOMALIGN, TPM_LEFTALIGN, WM_COMMAND, WM_DESTROY,
     WM_RBUTTONUP, WM_USER, WNDCLASSW, WS_OVERLAPPEDWINDOW, MF_STRING,
     MF_GRAYED, MF_BYCOMMAND, MF_DEFAULT, SW_RESTORE, SW_HIDE,
@@ -56,7 +57,11 @@ fn main() {
         unsafe {
             use windows::Win32::System::Console::{AttachConsole, ATTACH_PARENT_PROCESS, FreeConsole};
             if AttachConsole(ATTACH_PARENT_PROCESS).is_ok() {
-                let parent_hwnd = GetConsoleWindow();
+                // Windows Terminal 下 GetConsoleWindow 返回的是隐藏的 PseudoConsoleWindow，
+                // 它被 Terminal 顶层窗口 own 而非 child，GA_ROOT 只会返回自身；
+                // 必须用 GA_ROOTOWNER 沿 owner 链拿到真正的顶层窗口（CASCADIA_HOSTING_WINDOW_CLASS）；
+                // 普通 conhost 下窗口无 owner，GA_ROOTOWNER 返回自身，行为不变
+                let parent_hwnd = GetAncestor(GetConsoleWindow(), GA_ROOTOWNER);
                 if !parent_hwnd.0.is_null() {
                     let user_title = if args.len() > 1 { args[1..].join(" ") } else { "Console App".to_string() };
                     let exe_path = env::current_exe().unwrap();
